@@ -331,40 +331,41 @@ Hint You should be able to get under 2 minutes for BPE training using multiproce
 #### 答题区域（待填写）
 **实现思路：**
 
-<!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
+增量更新版 BPE：预分词后只统计相邻 pair 频次；每轮 merge 时只更新包含被合并 pair 的 word 的局部计数，而非全量重扫语料。（详细设计见 03 题实现思路）
 
 **代码文件与入口：**
 
 | 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
 | --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
+| `cs336_basics/bpe.py` | `train_bpe(input_path, vocab_size, special_tokens)` | BPE 训练主函数（增量更新版） |
+| `main.py` | `python main.py` | TinyStories 训练入口，产物序列化到 `output/tinystories` |
 
 **测试结果：**
 
 | 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
 | --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
+| `uv run pytest tests/test_train_bpe.py` | 3 passed | merges/vocab 与参考实现一致；speed 测试过门限 |
 
 **实验配置与产物：**
-- 数据集 / 划分 / 样本范围：<!-- 待填写 -->
-- 硬件、运行环境、随机种子：<!-- 待填写 -->
-- 关键超参数与运行命令：<!-- 待填写 -->
-- 运行时间、内存 / 显存：<!-- 待填写 -->
-- 曲线、日志或输出文件：<!-- 待填写 -->
+- 数据集 / 划分 / 样本范围：TinyStories train 集（`data/TinyStoriesV2-GPT4-train.txt`）
+- 硬件、运行环境、随机种子：本地 CPU，`uv run python main.py`
+- 关键超参数与运行命令：`vocab_size=10000`，special_tokens 含 `<|endoftext|>`
+- 运行时间、内存 / 显存：**训练耗时 179.50s**（未记录内存，待补充）
+- 曲线、日志或输出文件：`output/tinystories`（vocab + merges）
 ##### (a)
 训练时间、内存、最长 token 及解释（1–2 句话）：
 
-<!-- 待填写 -->
+增量更新版在 TinyStories（vocab 10000，9743 条 merge 规则）上训练耗时 179.50s。最长 token 待检查。<!-- 内存与最长 token 待补充 -->
 
 ##### (b)
 性能分析：最耗时的环节（1–2 句话）：
 
-<!-- 待填写 -->
+<!-- 待填写：cProfile 结果 -->
 
-词表文件：<!-- 待填写 -->
-Merges 文件：<!-- 待填写 -->
+词表文件：`output/tinystories/vocab.*` <!-- 待核对文件名 -->
+Merges 文件：`output/tinystories/merges.*` <!-- 待核对文件名 -->
 Profile 文件：<!-- 待填写 -->
-- [ ] 已按本题原文要求完成全部交付物。
+- [ ] 已按本题原文要求完成全部交付物。<!-- 待完成：(b) profile、内存占用、最长 token；完成后勾选 -->
 
 ---
 
