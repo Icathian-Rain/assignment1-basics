@@ -49,6 +49,7 @@ line-length = 120
 dev = [
     "icecream>=2.2.0",
     "ipykernel>=7.4.0",
+    "psutil>=7.2.2",
 ]
 
 [tool.ruff.lint]

@@ -350,22 +350,30 @@ Hint You should be able to get under 2 minutes for BPE training using multiproce
 - 数据集 / 划分 / 样本范围：TinyStories train 集（`data/TinyStoriesV2-GPT4-train.txt`）
 - 硬件、运行环境、随机种子：本地 CPU，`uv run python main.py`
 - 关键超参数与运行命令：`vocab_size=10000`，special_tokens 含 `<|endoftext|>`
-- 运行时间、内存 / 显存：**训练耗时 179.50s**（未记录内存，待补充）
+- 运行时间、内存 / 显存：**训练耗时 43.7331s** / **内存占用 6771.05 MiB**
 - 曲线、日志或输出文件：`output/tinystories`（vocab + merges）
+
 ##### (a)
 训练时间、内存、最长 token 及解释（1–2 句话）：
 
-增量更新版在 TinyStories（vocab 10000，9743 条 merge 规则）上训练耗时 179.50s。最长 token 待检查。<!-- 内存与最长 token 待补充 -->
+增量更新版在 TinyStories（vocab 10000，9743 条 merge 规则）
+训练时间, 内存占用进行独立分开测试记录
++ 只测试训练时间: 
+    - 进程数=8: 43.7331s, 见`output/8_time_tinystories.txt`
++ 只测试内存占用: 
+    - 进程数=8: 6771.05 MiB, 见`output/8_memory_tinystories.txt`
+
+最长 token b' accomplishment' 15 字节——儿童故事语料里高频出现，合理
 
 ##### (b)
 性能分析：最耗时的环节（1–2 句话）：
 
-<!-- 待填写：cProfile 结果 -->
+裸跑下找 best pair 占 ~46%、预分词占 ~52%，两者几乎对半；merge 的增量更新部分只占 2%。
 
-词表文件：`output/tinystories/vocab.*` <!-- 待核对文件名 -->
-Merges 文件：`output/tinystories/merges.*` <!-- 待核对文件名 -->
-Profile 文件：<!-- 待填写 -->
-- [ ] 已按本题原文要求完成全部交付物。<!-- 待完成：(b) profile、内存占用、最长 token；完成后勾选 -->
+词表文件：`output/tinystories/vocab.json`
+Merges 文件：`output/tinystories/merges.json`
+Profile 文件：`output/profile_tinystories.txt`
+- [x] 已按本题原文要求完成全部交付物。
 
 ---
 

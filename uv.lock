@@ -171,6 +171,7 @@ dependencies = [
 dev = [
     { name = "icecream" },
     { name = "ipykernel" },
+    { name = "psutil" },
 ]
 
 [package.metadata]
@@ -195,6 +196,7 @@ requires-dist = [
 dev = [
     { name = "icecream", specifier = ">=2.2.0" },
     { name = "ipykernel", specifier = ">=7.4.0" },
+    { name = "psutil", specifier = ">=7.2.2" },
 ]
 
 [[package]]

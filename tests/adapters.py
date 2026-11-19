@@ -591,4 +591,4 @@ def run_train_bpe(
                 Merges are ordered by order of creation.
     """
     # raise NotImplementedError
-    return train_bpe(input_path, vocab_size, special_tokens)
+    return train_bpe(input_path, vocab_size, special_tokens, 8)

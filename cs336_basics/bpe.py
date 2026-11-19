@@ -5,6 +5,8 @@ from collections import Counter, defaultdict
 from icecream import ic
 from multiprocessing import Pool
 
+from .utils import Timer
+
 ic.configureOutput(includeContext=True)
 ic.disable()
 
@@ -82,112 +84,141 @@ def process_chunk(args):
     return pretoken_freq
 
 
-def train_bpe(
-    input_path: str | os.PathLike,
-    vocab_size: int,
-    special_tokens: list[str],
-) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
-    # 初始化
+def merge(tokens, best_pair, merged_token):
+    new_tokens = []
+    i = 0
+    while i < len(tokens):
+        if (
+            i + 1 < len(tokens)
+            and tokens[i] == best_pair[0]
+            and tokens[i + 1] == best_pair[1]
+        ):
+            new_tokens.append(merged_token)
+            i += 2
+        else:
+            new_tokens.append(tokens[i])
+            i += 1
+    return new_tokens
 
-    vocab: dict[int, bytes] = dict()
+
+from .utils import Timer
+
+
+def train_bpe(
+    input_path,
+    vocab_size,
+    special_tokens,
+    num_processes=1,
+    profile_time=False
+):
+    total_timer = Timer("Total Training", enabled=profile_time).start()
+
+    # 1. 初始化词表
+    vocab = {}
     for token in special_tokens:
         vocab[len(vocab)] = token.encode("utf-8")
     for i in range(256):
         vocab[len(vocab)] = bytes([i])
 
-    merges: list[tuple[bytes, bytes]] = list()
+    merges = []
 
-    # 1. 多线程获取pretoken_freq
-    # num_processes = 1
-    num_processes = min(8, os.cpu_count() or 1)
+    # 2. 文件分块
+    with Timer("Chunk Boundaries", enabled=profile_time):
+        num_processes = min(num_processes, os.cpu_count() or 1)
 
-    ic(num_processes)
+        with open(input_path, "rb") as f:
+            boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
 
-    with open(input_path, "rb") as f:
-        boundaries = find_chunk_boundaries(f, num_processes, b"<|endoftext|>")
+        tasks = [
+            (input_path, start, end, special_tokens)
+            for start, end in zip(boundaries[:-1], boundaries[1:])
+            if start < end
+        ]
 
-    tasks = [
-        (input_path, start, end, special_tokens)
-        for start, end in zip(boundaries[:-1], boundaries[1:])
-        if start < end
-    ]
+    # 3. 多进程预分词
+    with Timer("Pretokenization", enabled=profile_time):
+        pretoken_freq = Counter()
 
-    pretoken_freq = Counter()
-    with Pool(processes=num_processes) as pool:
-        for freq in pool.imap_unordered(process_chunk, tasks):
-            pretoken_freq.update(freq)
+        with Pool(processes=num_processes) as pool:
+            for freq in pool.imap_unordered(process_chunk, tasks):
+                pretoken_freq.update(freq)
 
-    # 3. word_freq, 初始化按单个字符token分组的情况
-    word_freq = {}
-    # 优化1: 反向查找, 看哪些word需要修改
-    pair2word = defaultdict(set)
-    # 优化2: pair_freq 增删而不是每次重建
-    pair_freq = Counter()
-    for word_id, (word, freq) in enumerate(pretoken_freq.items()):
-        tokens = tuple(bytes([b]) for b in word)
-        word_freq[word_id] = (tokens, freq)
-        for i in range(len(tokens) - 1):
-            pair = (tokens[i], tokens[i + 1])
-            pair2word[pair].add(word_id)
-            pair_freq[pair] += freq
+    # 4. 初始化 Pair 统计
+    with Timer("Pair Initialization", enabled=profile_time):
+        word_freq = {}
+        pair2word = defaultdict(set)
+        pair_freq = Counter()
 
-    ic(word_freq)
+        for word_id, (word, freq) in enumerate(pretoken_freq.items()):
+            tokens = tuple(bytes([b]) for b in word)
+            word_freq[word_id] = (tokens, freq)
 
-    # 4. BPE merge
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                pair2word[pair].add(word_id)
+                pair_freq[pair] += freq
+
+    # 5. BPE Merge
+    merge_timer = Timer("BPE Merge", enabled=profile_time).start()
+
+    find_timer = Timer("Find Best Pair", auto_print=False, enabled=profile_time)
+    update_timer = Timer("Update Pairs", auto_print=False, enabled=profile_time)
     while len(vocab) < vocab_size:
-        ic(pair_freq)
         if not pair_freq:
             break
 
-        # 4. 寻找best_pair
+        # 5.1 寻找best_pair
+        # TODO: 改用堆实现
+        find_timer.start()
         best_pair = max(pair_freq, key=lambda pair: (pair_freq[pair], pair))
-        ic(best_pair)
+        find_timer.stop()
 
-        # 5. 更新vocab, merges
+        update_timer.start()
         merged_token = best_pair[0] + best_pair[1]
         vocab[len(vocab)] = merged_token
         merges.append(best_pair)
 
-        # 6. 更新受影响的word和pair
         affected_word_ids = pair2word[best_pair].copy()
         changed_pairs = set()
+
         for word_id in affected_word_ids:
             tokens, freq = word_freq[word_id]
-            # 6.1 删除旧pair
+
+            # 5.2 删除受影响的token pair
             for i in range(len(tokens) - 1):
                 pair = (tokens[i], tokens[i + 1])
                 pair_freq[pair] -= freq
                 pair2word[pair].discard(word_id)
                 changed_pairs.add(pair)
 
-            # 6.2 执行merge
-            new_tokens = []
-            i = 0
-            while i < len(tokens):
-                if (
-                    i + 1 < len(tokens)
-                    and tokens[i] == best_pair[0]
-                    and tokens[i + 1] == best_pair[1]
-                ):
-                    new_tokens.append(merged_token)
-                    i += 2
-                else:
-                    new_tokens.append(tokens[i])
-                    i += 1
+            # 5.3 merge
+            new_tokens = merge(tokens, best_pair, merged_token)
 
-            # 6.3 更新pair的贡献与map
+            # 5.4 添加新的token pair
             for i in range(len(new_tokens) - 1):
                 pair = (new_tokens[i], new_tokens[i + 1])
                 pair_freq[pair] += freq
                 pair2word[pair].add(word_id)
                 changed_pairs.add(pair)
 
-            # 6.4 更新word
             word_freq[word_id] = (new_tokens, freq)
+
+        # 5.5 删除为0的pair
         for pair in changed_pairs:
             if pair_freq[pair] <= 0:
                 pair_freq.pop(pair, None)
                 pair2word.pop(pair, None)
+        
+        if profile_time and len(merges) % 1000 == 0:
+            merge_timer.print(
+                f"Merge {len(merges)}/{vocab_size - len(special_tokens) - 256}"
+            )
+        update_timer.stop()
 
     ic(vocab, merges)
+    find_timer.print()
+    update_timer.print()
+    merge_timer.stop()
+    total_timer.stop()
+
     return vocab, merges
