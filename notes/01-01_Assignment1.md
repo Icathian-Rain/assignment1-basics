@@ -472,25 +472,44 @@ To test your Tokenizer against our provided tests, you will first need to implem
 #### 答题区域（待填写）
 **实现思路：**
 
-<!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
+BPETokenzier 类有vocab, merges, special_tokens 三个属性, 
++ vocab是一个字典, key是token id, value是token bytes; 
++ merges是一个列表, 每个元素是一个元组, 表示两个token bytes的合并; 
++ special_tokens是一个列表, 包含用户提供的特殊token。
+
+为了方便编码和解码, 需要构建两个字典:
++ token2id: key是token bytes, value是token id, 用于编码;
++ merge_ranks: key是合并的两个token bytes组成的元组, value是合并的顺序, 用于编码时判断是否可以合并。
+
+在编码时, 先将special_tokens单独分出来, 这部分直接encode, 然后将输入文本进行预分词, 对每个pre-token进行BPE合并, 直到无法再合并为止。编码结果是token id的列表。
+在解码时, 先将token id转换为token bytes, 然后拼接这些bytes, 最后进行UTF-8解码, 如果遇到无效字节, 用U+FFFD替换。
 
 **代码文件与入口：**
 
 | 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
 | --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
+| `cs336_basics/tokenizer.py` | `class BPETokenizer` | BPE Tokenizer实现 |
 
 **测试结果：**
 
 | 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
 | --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
+| `uv run pytest tests/test_tokenizer.py` | `24 passed, 1 xfailed in 18.02s ` | 无 |
 
 **说明 / 作答：**
 
-<!-- 待填写 -->
+无
 
-- [ ] 已按本题原文要求完成全部交付物。
+- [x]已按本题原文要求完成全部交付物。
+
+#### 评审意见（2026-11-20）
+**评分：13.5 / 15**
+- **测试全绿（24 passed, 1 xfailed），接口完全符合讲义推荐格式**：`__init__` / `from_files` / `encode` / `encode_iterable` / `decode` 全部就位；`from_files` 正确消费了自有序列化格式（hex JSON），`merge_ranks` 的 pair→rank 查表设计正确表达了"按训练顺序应用 merges"的语义。
+- **流程顺序正确**：special token 先切分再逐段处理、pre-token 边界内合并、decode 先拼接后整体 UTF-8 解码（避免 02 题 `decode_utf8_bytes_to_str_wrong` 的逐字节陷阱）、`errors='replace'` 符合原文要求——四条关键约束全部落实。
+- **细节意识好**：special tokens 按 `len` 降序排列再拼正则，避免了 `<|eos|>` 被 `<|e` 类前缀提前吃掉的匹配歧义；`encode_iterable` 用 `yield from` 保持惰性语义。
+- **扣分点 1（encode 性能，−1）**：`encode_pretoken` 是 O(n²) 的重复全扫——每次合并都从头扫全部 pair 找最小 rank。单个 pre-token 短时无碍，但 07 题编码整个 TinyStories/OWT 时这会是主瓶颈。考虑利用合并的局部性（合并只影响新 token 左右两个邻接 pair，不必全扫）。
+- **扣分点 2（`__init__` 未按讲义处理 special_tokens 追加，−0.5）**：讲义要求 special tokens "if they aren't already there, appending to the vocabulary"——当前实现只存引用，未追加不在词表中的 special token。测试恰好没卡这个分支（提供的 vocab 里已含 special token），但用 `from_files` 加载一个不含 special token 的词表时会漏。注意追加时要同步更新 `token2id`。
+- **小问题（不扣分，顺手改）**：`decode` 里 `self.vocab[id]` 对未知 id 会直接 KeyError——自己定个明确策略（抛带上下文的错或忽略）会让 07 题调试更快；special token 的 `token2id` 查询同理。另：仓库里暂存的类名是 `BPETokenizer`，早前 `adapters.py` 里曾出现 `BPEToeknizer` 拼写——确认三处引用（tokenizer.py / adapters.py / test_tokenizer.py）一致即可。
 
 ---
 
@@ -518,53 +537,30 @@ To test your Tokenizer against our provided tests, you will first need to implem
 **(d)** 用你的 TinyStories 和 OpenWebText 分词器，将各自的训练集与开发集编码为整数 token ID 序列。我们稍后用它训练语言模型。我们建议将 token ID 序列化为 dtype 为 uint16 的 NumPy 数组。为什么 uint16 是合适的选择？
 **交付物：** 一至两句话回答。
 
-#### 答题区域（待填写）
-**实现思路：**
-
-<!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
-
-**代码文件与入口：**
-
-| 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
-| --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
-
-**测试结果：**
-
-| 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
-| --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
-
-**实验配置与产物：**
-- 数据集 / 划分 / 样本范围：<!-- 待填写 -->
-- 硬件、运行环境、随机种子：<!-- 待填写 -->
-- 关键超参数与运行命令：<!-- 待填写 -->
-- 运行时间、内存 / 显存：<!-- 待填写 -->
-- 曲线、日志或输出文件：<!-- 待填写 -->
 ##### (a)
 两个分词器各自的 bytes/token（1–2 句话）：
 
-<!-- 待填写 -->
+TinyStories 的压缩率(bytes/token): `4.060187469166255`
+OpenWebText 的压缩率(bytes/token): `TODO`(OpenWebText 分词器未训练完毕)
 
 ##### (b)
 TinyStories 分词器编码 OpenWebText 的比较（1–2 句话）：
 
-<!-- 待填写 -->
+`TODO`(OpenWebText 分词器未训练完毕)
 
 ##### (c)
 吞吐量、825 GB Pile 所需时间估计（1–2 句话）：
 
-<!-- 待填写 -->
+吞吐量: `191095`Tokens/s, 预估 825GB Pile 所需时间: `305.44 hours (12.73 days)`，假设吞吐量线性扩展
 
 ##### (d)
 训练/开发集序列化位置，以及选择 uint16 的解释（1–2 句话）：
 
-<!-- 待填写 -->
 
 | 数据集 | 划分 | token 数 | dtype | 输出文件 |
 | --- | --- | --- | --- | --- |
 | TinyStories | train | 待填写 | 待填写 | 待填写 |
-| TinyStories | dev | 待填写 | 待填写 | 待填写 |
+| TinyStories | valid | `5465883` | `uint16` | `output/tinystories_valid/tokens.bin` |
 | OpenWebText | train | 待填写 | 待填写 | 待填写 |
 | OpenWebText | dev | 待填写 | 待填写 | 待填写 |
 
