@@ -616,30 +616,28 @@ $$y=Wx \tag{3}$$
 #### 答题区域（待填写）
 **实现思路：**
 
-<!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
+实现思路：
+
+继承 `nn.Module`，无 bias。参数存为 $W \in \mathbb{R}^{d_{out} \times d_{in}}$（`nn.Parameter`，符合讲义"$W$ 而非 $W^\top$"的方向约定——数学记号列向量 $y=Wx$，PyTorch 行向量对应 $y=xW^\top$），`forward` 即 `x @ self.weight.T`。初始化用 `trunc_normal_`：$\sigma^2 = 2/(d_{in}+d_{out})$（讲义式 3 下方给定），截断区间 $[-3\sigma, 3\sigma]$；`device`/`dtype` 从 `__init__` 透传到参数张量。
 
 **代码文件与入口：**
 
 | 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
 | --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
+| `cs336_basics/module.py` | `class Linear(in_features, out_features, device, dtype)` | 无 bias 线性层，trunc_normal 初始化 |
+| `tests/adapters.py` | `run_linear` | 测试适配器：`load_state_dict` 加载权重后调用 forward |
 
 **测试结果：**
 
 | 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
 | --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
+| `uv run pytest -k test_linear` | **1 passed**（2026-11-20） | 与 torch 参考实现对拍通过；权重加载用 `load_state_dict({"weight": weights})` |
 
 **说明 / 作答：**
 
-<!-- 待填写 -->
+无
 
-- [ ] 已按本题原文要求完成全部交付物。
-
----
-
-<a id="problem-embedding"></a>
-### 09. 实现嵌入层（1 分）
+- [x] 已按本题原文要求完成全部交付物。
 **原题：Problem (embedding): Implement the embedding module (1 point)**  
 **来源：§3.3.3，PDF 第 18–19 页。**
 #### 英文题目要求与交付物
@@ -680,25 +678,26 @@ To test your implementation, implement the test adapter at `adapters.run_embeddi
 #### 答题区域（待填写）
 **实现思路：**
 
-<!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
+继承 `nn.Module`，嵌入矩阵存为 `nn.Parameter`，形状 $(\text{vocab\_size}, d_{\mathrm{model}})$——与讲义约定一致，$d_{\mathrm{model}}$ 在最后一维。`forward` 直接做整数索引查表（`self.weight[token_ids]`），天然支持任意形状的 token IDs 输入，输出在末维拼上 $d_{\mathrm{model}}$。初始化按讲义：$\mathcal N(0,1)$ 截断至 $[-3,3]$，用 `trunc_normal_(std=1, a=-3, b=3)`；`device`/`dtype` 透传到参数张量。
 
 **代码文件与入口：**
 
 | 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
 | --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
+| `cs336_basics/module.py` | `class Embedding(num_embeddings, embedding_dim, device, dtype)` | 嵌入查表，trunc_normal(0,1,±3σ) 初始化 |
+| `tests/adapters.py` | `run_embedding` | 测试适配器：加载权重矩阵后按 token_ids 查表 |
 
 **测试结果：**
 
 | 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
 | --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
+| `uv run pytest -k test_embedding` | **1 passed**（2026-11-20） | 与 `nn.Embedding` 参考对拍通过 |
 
 **说明 / 作答：**
 
-<!-- 待填写 -->
+无
 
-- [ ] 已按本题原文要求完成全部交付物。
+- [x] 已按本题原文要求完成全部交付物。
 
 ---
 
