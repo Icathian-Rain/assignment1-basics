@@ -1,8 +1,10 @@
 import argparse
+from itertools import islice
 import json
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable, Iterator
 from icecream import ic
 import numpy as np
 
@@ -52,36 +54,86 @@ def save_tokens(token_ids, output_dir):
     tokens = np.asarray(token_ids, dtype=np.uint16)
     tokens.tofile(output_dir/"tokens.bin")
 
+def iter_documents(
+    filepath: str,
+    separator: str = "<|endoftext|>",
+    chunk_size: int = 1024 * 1024,
+) -> Iterator[str]:
+    buffer = ""
+
+    with open(filepath, "r", encoding="utf-8") as f:
+        while chunk := f.read(chunk_size):
+            buffer += chunk
+
+            while separator in buffer:
+                document, buffer = buffer.split(separator, 1)
+                if document:
+                    yield document
+                yield separator
+
+        if buffer:
+            yield buffer
+
+def save_token_ids(
+    token_ids: Iterable[int],
+    output_path: str,
+    batch_size: int = 100_000,
+) -> int:
+    iterator = iter(token_ids)
+    total = 0
+
+    with open(output_path, "wb") as f:
+        while True:
+            batch = np.fromiter(
+                islice(iterator, batch_size),
+                dtype=np.dtype("<u2"),
+            )
+
+            if batch.size == 0:
+                break
+
+            batch.tofile(f)
+            total += batch.size
+
+    return total
+
+from time import perf_counter
 
 def test(name: str):
     config = CONFIGS[name]
+    input_path = Path(config.input_path)
+    output_path = Path("output") / name / "tokens.bin"
+
     tokenizer = BPETokenizer.from_files(
         vocab_filepath=config.vocab_filepath,
         merges_filepath=config.merges_filepath,
         special_tokens=config.special_tokens,
     )
 
-    text = Path(config.input_path).read_text()
-    data_size = len(text.encode('utf-8'))
+    if any(not 0 <= idx <= 65535 for idx in tokenizer.vocab):
+        raise ValueError("Vocabulary contains token IDs outside the uint16 range")
 
-    timer = Timer("Encode")
-    timer.start()
-    token_ids = tokenizer.encode(text)
-    timer.stop()
+    input_bytes = input_path.stat().st_size
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    ic(len(token_ids))
-    output_dir = Path("output") / name
-    save_tokens(token_ids, output_dir)
-    
+    start = perf_counter()
+    documents = iter_documents(input_path) # type: ignore
+    token_ids = tokenizer.encode_iterable(documents)
+    total = save_token_ids(token_ids, output_path) # type: ignore
+    elapsed = perf_counter() - start
 
-    # 计算压缩比
-    # ic(get_compression_ratio(text, token_ids))
+    bytes_per_second = input_bytes / elapsed
+    print(f"Time: {elapsed:.4f} s")
+    print(f"Tokens: {total:,}")
+    print(f"Tokens/s: {total / elapsed:,.0f}")
+    print(f"Throughput: {bytes_per_second / 2**20:.2f} MiB/s")
 
-    # throughput = data_size / timer.elapsed / 1024**2
-    # estimated_hours = 825 * 1000 / throughput / 3600
-    # print(f"Throughput: {throughput:.2f} MiB/s")
-    # print(f"Tokens/s: {len(token_ids) / timer.elapsed:.0f}")
-    # print(f"Estimated time for 825 GB Pile: {estimated_hours:.2f} hours")
+    if total:
+        print(f"Compression ratio: {input_bytes / total:.4f} bytes/token")
+    if input_bytes:
+        print(f"Estimated time for 825 GB Pile: {825e9 / bytes_per_second / 3600:.2f} hours")
+
+    ic(tokenizer.encode_pretoken.cache_info())
 
 
 

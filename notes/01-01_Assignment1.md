@@ -553,13 +553,16 @@ TinyStories 分词器编码 OpenWebText 的比较（1–2 句话）：
 
 吞吐量: `191095`Tokens/s, 预估 825GB Pile 所需时间: `305.44 hours (12.73 days)`，假设吞吐量线性扩展
 
++ 优化1: 使用 lru_cache(maxsize=100_000) 缓存 encode_pretoken, 吞吐量提升至 `1,761,969`Tokens/s, 预估 825GB Pile 所需时间: `31.59 hours (1.38 days)`，假设吞吐量线性扩展
++ 优化2: 改为流式 encode 与 流式写入, 吞吐量无明显提升, 但支持大文件分词
+
 ##### (d)
 训练/开发集序列化位置，以及选择 uint16 的解释（1–2 句话）：
 
 
 | 数据集 | 划分 | token 数 | dtype | 输出文件 |
 | --- | --- | --- | --- | --- |
-| TinyStories | train | 待填写 | 待填写 | 待填写 |
+| TinyStories | train | `541,229,347` | `uint16` | `output/tinystories_train/tokens.bin` |
 | TinyStories | valid | `5465883` | `uint16` | `output/tinystories_valid/tokens.bin` |
 | OpenWebText | train | 待填写 | 待填写 | 待填写 |
 | OpenWebText | dev | 待填写 | 待填写 | 待填写 |

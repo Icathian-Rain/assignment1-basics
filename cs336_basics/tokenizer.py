@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 import regex as re
 import json
+from functools import lru_cache
 
 PAT = re.compile(
     r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
@@ -17,9 +18,15 @@ class BPETokenizer:
     ):
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens = special_tokens
+        self.special_tokens = special_tokens or []
         self.token2id = {token: idx for idx, token in vocab.items()}
         self.merge_ranks = {pair: rank for rank, pair in enumerate(merges)}
+        if self.special_tokens:
+            tokens = sorted(self.special_tokens, key=len, reverse=True)
+            pattern = "|".join(re.escape(t) for t in tokens)
+            self.special_pattern = re.compile(pattern)
+        else:
+            self.special_pattern = None
 
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens=None):
@@ -33,7 +40,9 @@ class BPETokenizer:
 
         return cls(vocab, merges, special_tokens)
 
-    def encode_pretoken(self, pretoken: str) -> list[int]:
+    # 优化1: LRU缓存
+    @lru_cache(maxsize=100_000)
+    def encode_pretoken(self, pretoken: str) -> tuple[int, ...]:
         tokens = [bytes([b]) for b in pretoken.encode("utf-8")]
         while len(tokens) > 1:
             best_rank = float("inf")
@@ -48,30 +57,33 @@ class BPETokenizer:
             if best_idx == -1:
                 break
             tokens[best_idx : best_idx + 2] = [tokens[best_idx] + tokens[best_idx + 1]]
-        return [self.token2id[token] for token in tokens]
+        return tuple(self.token2id[token] for token in tokens)
+
+
+    def _iter_encode_normal(self, text: str) -> Iterator[int]:
+        for match in PAT.finditer(text):
+            yield from self.encode_pretoken(match.group())
+
+    def iter_encode(self, text: str) -> Iterator[int]:
+        if not self.special_tokens:
+            yield from self._iter_encode_normal(text)
+            return
+
+        start = 0
+        assert self.special_pattern is not None
+        for match in self.special_pattern.finditer(text):
+            yield from self._iter_encode_normal(text[start:match.start()])
+            yield self.token2id[match.group().encode("utf-8")]
+            start = match.end()
+
+        yield from self._iter_encode_normal(text[start:])
 
     def encode(self, text: str) -> list[int]:
-        ids = []
-        if self.special_tokens:
-            special_tokens = sorted(self.special_tokens, key=len, reverse=True)
-            pattern = "(" + "|".join(re.escape(token) for token in special_tokens) + ")"
-            chunks = re.split(pattern, text)
-        else:
-            chunks = [text]
-
-        special_set = set(self.special_tokens) if self.special_tokens else set()
-        for chunk in chunks:
-            if chunk in special_set:
-                ids.append(self.token2id[chunk.encode("utf-8")])
-            else:
-                for match in PAT.finditer(chunk):
-                    ids.extend(self.encode_pretoken(match.group()))
-
-        return ids
+        return list(self.iter_encode(text))
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
         for text in iterable:
-            yield from self.encode(text)
+            yield from self.iter_encode(text)
 
     def decode(self, ids: list[int]) -> str:
         text = b"".join([self.vocab[id] for id in ids]).decode('utf-8', errors='replace')
