@@ -398,39 +398,41 @@ Profile 文件：`output/profile_tinystories.txt`
 #### 答题区域（待填写）
 **实现思路：**
 
+**⚠️ 暂缓：受限于设备资源（OWT 训练预估内存超出本机余量），本题暂不完成，后续有条件时补跑。** 管线已就绪：`train_bpe.py` 的 `owt` 配置（vocab 32000、16 进程）可直接运行；待补项为 OWT 词表训练及本题交付物。
+
 <!-- 待填写：由自己说明设计、数据结构、边界处理或实验实现 -->
 
 **代码文件与入口：**
 
 | 文件路径 | 类 / 函数 / 脚本入口 | 说明 |
 | --- | --- | --- |
-| 待填写 | 待填写 | 待填写 |
+| `train_bpe.py` | `CONFIGS["owt"]` | OWT 训练配置（vocab 32000，16 进程），暂未运行 |
 
 **测试结果：**
 
 | 测试命令 / 检查方法 | 结果 | 日志 / 备注 |
 | --- | --- | --- |
-| 待填写 | 待运行 | 待填写 |
+| OWT 词表训练 | 暂缓 | 受设备资源限制未运行 |
 
 **实验配置与产物：**
-- 数据集 / 划分 / 样本范围：<!-- 待填写 -->
-- 硬件、运行环境、随机种子：<!-- 待填写 -->
-- 关键超参数与运行命令：<!-- 待填写 -->
-- 运行时间、内存 / 显存：<!-- 待填写 -->
-- 曲线、日志或输出文件：<!-- 待填写 -->
+- 数据集 / 划分 / 样本范围：OWT train 集（`data/owt_train.txt`）<!-- 暂缓，未运行 -->
+- 硬件、运行环境、随机种子：本地 CPU，TinyStories 训练峰值内存 6.7 GiB；OWT 语料约 12GB，pretoken/pair 统计规模数倍于 TinyStories，本机内存余量不足
+- 关键超参数与运行命令：`train_bpe.py owt`（vocab 32000，special_tokens 含 ` `）
+- 运行时间、内存 / 显存：未运行
+- 曲线、日志或输出文件：无
 ##### (a)
 最长 token 及解释（1–2 句话）：
 
-<!-- 待填写 -->
+<!-- 暂缓：待 OWT 词表训练完成后填写 -->
 
 ##### (b)
 TinyStories 与 OpenWebText 分词器对比（1–2 句话）：
 
-<!-- 待填写 -->
+<!-- 暂缓：待 OWT 词表训练完成后填写 -->
 
-词表文件：<!-- 待填写 -->
-Merges 文件：<!-- 待填写 -->
-- [ ] 已按本题原文要求完成全部交付物。
+词表文件：暂缓（完成后为 `output/owt/vocab.json`）
+Merges 文件：暂缓（完成后为 `output/owt/merges.json`）
+- [ ] 已按本题原文要求完成全部交付物。<!-- 暂缓：设备资源受限 -->
 
 ---
 
@@ -541,12 +543,12 @@ BPETokenzier 类有vocab, merges, special_tokens 三个属性,
 两个分词器各自的 bytes/token（1–2 句话）：
 
 TinyStories 的压缩率(bytes/token): `4.060187469166255`
-OpenWebText 的压缩率(bytes/token): `TODO`(OpenWebText 分词器未训练完毕)
+OpenWebText 的压缩率(bytes/token): 暂缓（受设备资源限制，OWT 分词器未训练，见 05 题标注）
 
 ##### (b)
 TinyStories 分词器编码 OpenWebText 的比较（1–2 句话）：
 
-`TODO`(OpenWebText 分词器未训练完毕)
+暂缓（受设备资源限制，OWT 分词器未训练，见 05 题标注）
 
 ##### (c)
 吞吐量、825 GB Pile 所需时间估计（1–2 句话）：
@@ -564,10 +566,10 @@ TinyStories 分词器编码 OpenWebText 的比较（1–2 句话）：
 | --- | --- | --- | --- | --- |
 | TinyStories | train | `541,229,347` | `uint16` | `output/tinystories_train/tokens.bin` |
 | TinyStories | valid | `5465883` | `uint16` | `output/tinystories_valid/tokens.bin` |
-| OpenWebText | train | 待填写 | 待填写 | 待填写 |
-| OpenWebText | dev | 待填写 | 待填写 | 待填写 |
+| OpenWebText | train | 暂缓 | 暂缓 | 暂缓（设备资源受限，见 05 题标注） |
+| OpenWebText | dev | 暂缓 | 暂缓 | 暂缓（设备资源受限，见 05 题标注） |
 
-- [ ] 已按本题原文要求完成全部交付物。
+- [ ] 已按本题原文要求完成全部交付物。<!-- OWT 相关项暂缓：设备资源受限，见 05 题标注；TinyStories 部分已完成 -->
 
 ---
 
